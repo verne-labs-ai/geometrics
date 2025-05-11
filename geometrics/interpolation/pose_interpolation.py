@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy.spatial.transform import Rotation as R
 from scipy.interpolate import interp1d
-from deoxys.utils import transform_utils  # NOTE: deoxys uses xyzw convention
+from geometrics.transforms.rigid import quaternion_from_matrix, quat_slerp
 
 
 def interpolate_line(y_values, kind="linear"):
@@ -49,15 +49,23 @@ def interpolate_poses(pos1, rot1, pos2, rot2, num_steps):
     return pos_steps, rot_steps, num_steps - 1
 
 
-def interpolate_rotations(R1, R2, num_steps):
+def interpolate_rotations(R1: np.ndarray, R2: np.ndarray, num_steps: int):
     """
     Interpolate between 2 rotation matrices.
     Return a list of quaternions (xyzw) representing the interpolated rotations.
     """
-    q1 = transform_utils.mat2quat(R1)
-    q2 = transform_utils.mat2quat(R2)
+    
+    tmp = np.eye(4)
+    tmp[:3, :3] = R1
+    R1 = tmp
+    tmp = np.eye(4)
+    tmp[:3, :3] = R2
+    R2 = tmp
+
+    q1 = quaternion_from_matrix(R1)
+    q2 = quaternion_from_matrix(R2)
     rot_steps = np.array(
-        [transform_utils.quat_slerp(q1, q2, fraction=(float(i) / num_steps)) for i in range(num_steps)]
+        [quat_slerp(q1, q2, fraction=(float(i) / num_steps)) for i in range(num_steps)]
     )
 
     # add in endpoint
