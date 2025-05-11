@@ -1,54 +1,9 @@
-from typing import Tuple
 import numpy as np
-
-
-def update_intrinsics_matrix(
-    intrinsics_matrix: np.ndarray, original_shape: Tuple[int, int], new_shape: Tuple[int, int]
-) -> np.ndarray:
-    """_summary_
-
-    Args:
-        intrinsics_matrix (np.ndarray): _description_
-        original_shape (Tuple[int, int]): _description_
-        new_shape (Tuple[int, int]): _description_
-
-    Returns:
-        np.ndarray: _description_
-    """
-
-    if intrinsics_matrix.shape != (3, 3):
-        raise ValueError("Intrinsics matrix must be a 3x3 matrix")
-    if new_shape[0] <= 0 or new_shape[1] <= 0:
-        raise ValueError("New shape must have positive width and height")
-    if original_shape[0] <= 0 or original_shape[1] <= 0:
-        raise ValueError("Original shape must have positive width and height")
-
-    # Extract the focal lengths and principal points from the original matrix
-    fx, fy = intrinsics_matrix[0, 0], intrinsics_matrix[1, 1]
-    cx, cy = intrinsics_matrix[0, 2], intrinsics_matrix[1, 2]
-    cx, cy = intrinsics_matrix[0, 2], intrinsics_matrix[1, 2]
-
-    # Calculate the scale factors for width and height
-    original_height, original_width = original_shape
-    new_height, new_width = new_shape
-
-    scale_x = new_width / original_width
-    scale_y = new_height / original_height
-
-    # Update the focal lengths and principal points
-    fx_new = fx * scale_x
-    fy_new = fy * scale_y
-    cx_new = cx * scale_x
-    cy_new = cy * scale_y
-
-    # Create the new intrinsic matrix
-    new_intrinsics_matrix = np.array([[fx_new, 0, cx_new], [0, fy_new, cy_new], [0, 0, 1]])
-
-    return new_intrinsics_matrix
+from geometrics.types.geometric_types import Matrix3x3
 
 
 def create_point_cloud_from_depth_and_color(
-    depth_map: np.ndarray, rgb_image: np.ndarray, intrinsics: np.ndarray, mask_zeros: bool = True
+    depth_map: np.ndarray, rgb_image: np.ndarray, intrinsics: Matrix3x3, mask_zeros: bool = True
 ) -> np.ndarray:
     """
     Generate a 3D point cloud from a depth map and RGB image in the camera frame.
@@ -97,7 +52,7 @@ def create_point_cloud_from_depth_and_color(
 
 
 def create_point_cloud_from_depth(
-    depth_map: np.ndarray, intrinsics: np.ndarray, mask_zeros: bool = True
+    depth_map: np.ndarray, intrinsics: Matrix3x3, mask_zeros: bool = True
 ) -> np.ndarray:
     """
     Generate a 3D point cloud from a depth map and RGB image in the camera frame.
