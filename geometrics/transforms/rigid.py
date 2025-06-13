@@ -2,7 +2,8 @@ from __future__ import division
 import math
 import numpy
 import numpy as np
-from numba import njit
+import scipy.spatial.transform as st
+
 
 EPS = numpy.finfo(float).eps * 4.0
 
@@ -909,47 +910,6 @@ def quaternion_inverse(quaternion):
     return quaternion_conjugate(quaternion) / numpy.dot(quaternion, quaternion)
 
 
-def quaternion_slerp(quat0, quat1, fraction, spin=0, shortestpath=True):
-    """Return spherical linear interpolation between two quaternions.
-
-    >>> q0 = random_quaternion()
-    >>> q1 = random_quaternion()
-    >>> q = quaternion_slerp(q0, q1, 0.0)
-    >>> numpy.allclose(q, q0)
-    True
-    >>> q = quaternion_slerp(q0, q1, 1.0, 1)
-    >>> numpy.allclose(q, q1)
-    True
-    >>> q = quaternion_slerp(q0, q1, 0.5)
-    >>> angle = math.acos(numpy.dot(q0, q))
-    >>> numpy.allclose(2.0, math.acos(numpy.dot(q0, q1)) / angle) or \
-        numpy.allclose(2.0, math.acos(-numpy.dot(q0, q1)) / angle)
-    True
-
-    """
-    q0 = unit_vector(quat0[:4])
-    q1 = unit_vector(quat1[:4])
-    if fraction == 0.0:
-        return q0
-    elif fraction == 1.0:
-        return q1
-    d = numpy.dot(q0, q1)
-    if abs(abs(d) - 1.0) < _EPS:
-        return q0
-    if shortestpath and d < 0.0:
-        # invert rotation
-        d = -d
-        q1 *= -1.0
-    angle = math.acos(d) + spin * math.pi
-    if abs(angle) < _EPS:
-        return q0
-    isin = 1.0 / math.sin(angle)
-    q0 *= math.sin((1.0 - fraction) * angle) * isin
-    q1 *= math.sin(fraction * angle) * isin
-    q0 += q1
-    return q0
-
-
 # epsilon for testing whether a number is close to zero
 _EPS = numpy.finfo(float).eps * 4.0
 
@@ -1070,59 +1030,6 @@ def is_same_transform(matrix0, matrix1):
     return numpy.allclose(matrix0, matrix1)
 
 
-def quat_slerp(quat0, quat1, fraction, shortestpath=True):
-    """
-    Return spherical linear interpolation between two quaternions.
-
-    E.g.:
-    >>> q0 = random_quat()
-    >>> q1 = random_quat()
-    >>> q = quat_slerp(q0, q1, 0.0)
-    >>> np.allclose(q, q0)
-    True
-
-    >>> q = quat_slerp(q0, q1, 1.0)
-    >>> np.allclose(q, q1)
-    True
-
-    >>> q = quat_slerp(q0, q1, 0.5)
-    >>> angle = math.acos(np.dot(q0, q))
-    >>> np.allclose(2.0, math.acos(np.dot(q0, q1)) / angle) or \
-        np.allclose(2.0, math.acos(-np.dot(q0, q1)) / angle)
-    True
-
-    Args:
-        quat0 (np.array): (x,y,z,w) quaternion startpoint
-        quat1 (np.array): (x,y,z,w) quaternion endpoint
-        fraction (float): fraction of interpolation to calculate
-        shortestpath (bool): If True, will calculate the shortest path
-
-    Returns:
-        np.array: (x,y,z,w) quaternion distance
-    """
-    q0 = unit_vector(quat0[:4])
-    q1 = unit_vector(quat1[:4])
-    if fraction == 0.0:
-        return q0
-    elif fraction == 1.0:
-        return q1
-    d = numpy.dot(q0, q1)
-    if abs(abs(d) - 1.0) < EPS:
-        return q0
-    if shortestpath and d < 0.0:
-        # invert rotation
-        d = -d
-        q1 *= -1.0
-    angle = math.acos(numpy.clip(d, -1, 1))
-    if abs(angle) < EPS:
-        return q0
-    isin = 1.0 / math.sin(angle)
-    q0 *= numpy.sin((1.0 - fraction) * angle) * isin
-    q1 *= numpy.sin(fraction * angle) * isin
-    q0 += q1
-    return q0
-
-
 def convert_pose_quat2mat(poses_quat):
     """
     Convert poses from quat xyzw to mat format.
@@ -1225,48 +1132,6 @@ def convert_pose_euler2quat(poses_euler):
     return poses_quat
 
 
-@njit(cache=True, fastmath=True)
-def quat_slerp_jitted(quat0, quat1, fraction, shortestpath=True):
-    """
-    Return spherical linear interpolation between two quaternions.
-    (adapted from deoxys)
-    Args:
-        quat0 (np.array): (x,y,z,w) quaternion startpoint
-        quat1 (np.array): (x,y,z,w) quaternion endpoint
-        fraction (float): fraction of interpolation to calculate
-        shortestpath (bool): If True, will calculate the shortest path
-
-    Returns:
-        np.array: (x,y,z,w) quaternion distance
-    """
-    EPS = 1e-8
-    q0 = quat0 / numpy.linalg.norm(quat0)
-    q1 = quat1 / numpy.linalg.norm(quat1)
-    if fraction == 0.0:
-        return q0
-    elif fraction == 1.0:
-        return q1
-    d = numpy.dot(q0, q1)
-    if numpy.abs(numpy.abs(d) - 1.0) < EPS:
-        return q0
-    if shortestpath and d < 0.0:
-        # invert rotation
-        d = -d
-        q1 *= -1.0
-    if d < -1.0:
-        d = -1.0
-    elif d > 1.0:
-        d = 1.0
-    angle = numpy.arccos(d)
-    if numpy.abs(angle) < EPS:
-        return q0
-    isin = 1.0 / numpy.sin(angle)
-    q0 *= numpy.sin((1.0 - fraction) * angle) * isin
-    q1 *= numpy.sin(fraction * angle) * isin
-    q0 += q1
-    return q0
-
-
 def convert_quat(q, to="xyzw"):
     """
     Converts quaternion from one convention to another.
@@ -1328,3 +1193,117 @@ def angle_between_rotmat(P, Q):
     cos_theta = (np.trace(R) - 1) / 2
     cos_theta = np.clip(cos_theta, -1.0, 1.0)
     return np.arccos(cos_theta)
+
+
+def pos_rot_to_mat(pos, rot):
+    shape = pos.shape[:-1]
+    mat = np.zeros(shape + (4,4), dtype=pos.dtype)
+    mat[...,:3,3] = pos
+    mat[...,:3,:3] = rot.as_matrix()
+    mat[...,3,3] = 1
+    return mat
+
+def mat_to_pos_rot(mat):
+    pos = (mat[...,:3,3].T / mat[...,3,3].T).T
+    rot = st.Rotation.from_matrix(mat[...,:3,:3])
+    return pos, rot
+
+def pos_rot_to_pose(pos, rot):
+    shape = pos.shape[:-1]
+    pose = np.zeros(shape+(6,), dtype=pos.dtype)
+    pose[...,:3] = pos
+    pose[...,3:] = rot.as_rotvec()
+    return pose
+
+def pose_to_pos_rot(pose):
+    pos = pose[...,:3]
+    rot = st.Rotation.from_rotvec(pose[...,3:])
+    return pos, rot
+
+def pose_to_mat(pose):
+    return pos_rot_to_mat(*pose_to_pos_rot(pose))
+
+def mat_to_pose(mat):
+    return pos_rot_to_pose(*mat_to_pos_rot(mat))
+
+def transform_pose(tx, pose):
+    """
+    tx: tx_new_old
+    pose: tx_old_obj
+    result: tx_new_obj
+    """
+    pose_mat = pose_to_mat(pose)
+    tf_pose_mat = tx @ pose_mat
+    tf_pose = mat_to_pose(tf_pose_mat)
+    return tf_pose
+
+def transform_point(tx, point):
+    return point @ tx[:3,:3].T + tx[:3,3]
+
+def project_point(k, point):
+    x = point @ k.T
+    uv = x[...,:2] / x[...,[2]]
+    return uv
+
+def apply_delta_pose(pose, delta_pose):
+    new_pose = np.zeros_like(pose)
+
+    # simple add for position
+    new_pose[:3] = pose[:3] + delta_pose[:3]
+
+    # matrix multiplication for rotation
+    rot = st.Rotation.from_rotvec(pose[3:])
+    drot = st.Rotation.from_rotvec(delta_pose[3:])
+    new_pose[3:] = (drot * rot).as_rotvec()
+
+    return new_pose
+
+def normalize(vec, tol=1e-7):
+    return vec / np.maximum(np.linalg.norm(vec), tol)
+
+def rot_from_directions(from_vec, to_vec):
+    from_vec = normalize(from_vec)
+    to_vec = normalize(to_vec)
+    axis = np.cross(from_vec, to_vec)
+    axis = normalize(axis)
+    angle = np.arccos(np.dot(from_vec, to_vec))
+    rotvec = axis * angle
+    rot = st.Rotation.from_rotvec(rotvec)
+    return rot
+
+def normalize(vec, eps=1e-12):
+    norm = np.linalg.norm(vec, axis=-1)
+    norm = np.maximum(norm, eps)
+    out = (vec.T / norm).T
+    return out
+
+def rot6d_to_mat(d6):
+    a1, a2 = d6[..., :3], d6[..., 3:]
+    b1 = normalize(a1)
+    b2 = a2 - np.sum(b1 * a2, axis=-1, keepdims=True) * b1
+    b2 = normalize(b2)
+    b3 = np.cross(b1, b2, axis=-1)
+    out = np.stack((b1, b2, b3), axis=-2)
+    return out
+
+def mat_to_rot6d(mat):
+    batch_dim = mat.shape[:-2]
+    out = mat[..., :2, :].copy().reshape(batch_dim + (6,))
+    return out
+
+def mat_to_pose10d(mat):
+    pos = mat[...,:3,3]
+    rotmat = mat[...,:3,:3]
+    d6 = mat_to_rot6d(rotmat)
+    d10 = np.concatenate([pos, d6], axis=-1)
+    return d10
+
+def pose10d_to_mat(d10):
+    pos = d10[...,:3]
+    d6 = d10[...,3:]
+    rotmat = rot6d_to_mat(d6)
+    out = np.zeros(d10.shape[:-1]+(4,4), dtype=d10.dtype)
+    out[...,:3,:3] = rotmat
+    out[...,:3,3] = pos
+    out[...,3,3] = 1
+    return out
