@@ -3,7 +3,7 @@ from geometrics.types.geometric_types import Matrix3x3
 
 
 def create_point_cloud_from_depth_and_color(
-    depth_map: np.ndarray, rgb_image: np.ndarray, intrinsics: Matrix3x3, mask_zeros: bool = True
+    depth_map: np.ndarray, rgb_image: np.ndarray, intrinsics: Matrix3x3, mask_zeros: bool = True, flatten: bool = True
 ) -> np.ndarray:
     """
     Generate a 3D point cloud from a depth map and RGB image in the camera frame.
@@ -48,7 +48,10 @@ def create_point_cloud_from_depth_and_color(
     # Stack to get an array of 3D points (N x 3)
     points = np.stack((x, y, z), axis=-1)
 
-    return np.concatenate([points, colors / 255], axis=-1)
+    if flatten:
+        return np.concatenate([points, colors / 255], axis=-1)
+    else:
+        return np.concatenate([points, colors / 255], axis=-1).reshape((height, width, 6))
 
 
 def create_point_cloud_from_depth(
