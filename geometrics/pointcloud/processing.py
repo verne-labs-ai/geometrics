@@ -44,6 +44,28 @@ def remove_statistical_outlier(xyzrgb, nb_neighbors=15, std_ratio=0.5, print_pro
     return xyzrgb[ind]
 
 
+def remove_radius_outlier(xyzrgb, nb_points, radius, print_progress=False):
+    """
+    Remove radius outliers from a colored point cloud.
+
+    Points are considered outliers if they have fewer than nb_points neighbors
+    within the specified radius.
+
+    Parameters:
+        xyzrgb (np.ndarray): Array of shape (N, >=3), where columns 0–2 are XYZ.
+        nb_points (int): Minimum number of points required within radius.
+        radius (float): Search radius for neighboring points.
+        print_progress (bool): Whether to print progress messages.
+
+    Returns:
+        np.ndarray: Subset of `xyzrgb` after removing radius outliers.
+    """
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(xyzrgb[:, :3])
+    _, ind = pcd.remove_radius_outlier(nb_points, radius, print_progress)
+    return xyzrgb[ind]
+
+
 def filter_points_by_bounds(points, bounds_min, bounds_max, strict=True):
     """
     Generate a mask for points within workspace bounds.
