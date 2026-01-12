@@ -305,7 +305,7 @@ def remove_object_from_scene(scene_pc: np.ndarray, object_pc: np.ndarray, thresh
     Parameters:
         scene_pc (np.ndarray): The scene point cloud as an array of shape (N, 3).
         object_pc (np.ndarray): The object point cloud as an array of shape (M, 3).
-        threshold (float): Distance threshold for matching; scene points closer than this 
+        threshold (float): Distance threshold for matching; scene points closer than this
                            to any object point will be removed.
 
     Returns:
@@ -315,3 +315,25 @@ def remove_object_from_scene(scene_pc: np.ndarray, object_pc: np.ndarray, thresh
     dists, _ = tree.query(scene_pc[:, :3], k=1)
     mask = dists > threshold
     return scene_pc[mask]
+
+
+def compute_pointcloud_centroid_and_bounds(points: np.ndarray, padding: float = 0.0) -> tuple:
+    """
+    Compute centroid and bounding box of a point cloud.
+
+    Parameters:
+        points (np.ndarray): Point cloud array of shape (N, 3) or (N, 6) where first 3 columns are XYZ.
+        padding (float): Additional padding to add to bounding box (in meters).
+
+    Returns:
+        tuple: (centroid, bbox_min_rel, bbox_max_rel)
+            - centroid (np.ndarray): (3,) array of centroid coordinates
+            - bbox_min_rel (np.ndarray): (3,) array of min bbox relative to centroid
+            - bbox_max_rel (np.ndarray): (3,) array of max bbox relative to centroid
+    """
+    xyz = points[:, :3]
+    centroid = np.mean(xyz, axis=0)
+    xyz_centered = xyz - centroid
+    bbox_min_rel = np.min(xyz_centered, axis=0) - padding
+    bbox_max_rel = np.max(xyz_centered, axis=0) + padding
+    return centroid, bbox_min_rel, bbox_max_rel
